@@ -3,7 +3,9 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Control.Monad 
 
-main = do 
+main = do
+    let file = "test.bas"
+    wordBank <- readFile file
     let test = "LET A = 2"
     print (test)
 
@@ -30,13 +32,21 @@ main = do
 --                 | <Variable> '=' <Expression>
 data Statement = Let Variable Expression
 
+instance Show Statement where 
+    show (Let var expr) =  "Let " ++ show var ++ " = " ++ show expr 
+
 data Statements =  Statement ':' Statements | Statement
 
 -- <Expression>  ::= <And Exp> OR <Expression>
 --                 | <And Exp>
-data Expression = 
+data Expression = AndExp 
 
-data Expression = 
+data AndExp = NotExp
+
+--data NotExp = undefined 
+
+data Variable = ID -- | Array (we'll use you later friend) 
+
 
 data Value = Variable | Function | Constant -- | '(' <Expression> ')' but I'm not sure how to handle that 
 
@@ -45,10 +55,12 @@ data Constant = Integer | String
 
 
 -- do we have to make a lexer? 
-pStatement = do 
+pStatement = do
+--first case a let statement 
     string "LET " 
-    var <- char
+    var <- char -- probably string is more appropriate
     string " = " -- not a fan but this will eat what i want 
-    value <- 
+    expr <- pExpression 
+    return (Let var expr)
 
 
