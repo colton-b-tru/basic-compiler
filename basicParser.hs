@@ -34,7 +34,7 @@ main = do
 --                 | RETURN
 --                 | <Variable> '=' <Expression>
 data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
-data Statement = Let Variable Expression
+data Statement = Let Variable Expression | Print Expression | End
 
 instance Show Statement where 
     show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
@@ -57,18 +57,29 @@ data Constant = Integer | String deriving Show
 
 
 
-pExpression = do
+pExpression = 
+    do -- handle num
     num <- P.many1 P.digit
     return $ Value (read num :: Integer)
-    -- <|> just taking care of num for now 
+    <|>
+    do --we need to handle the expression part to print 
 
-pStatement = do 
+
+pStatement = do --case of a let
     P.string "LET "
     var <- C.letter
     P.string " = " -- not a fan but this will eat what i want 
     expr <- pExpression 
     return (Let (ID var) expr)
-    
+    <|>
+    do -- case of a print 
+        P.string "PRINT "
+        printExpr <- pExpression
+        return (Print printExpr)
+    <|>
+    do -- case of an end 
+    end <- P.string "END"
+    return End
 
 
 
