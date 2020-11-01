@@ -4,10 +4,12 @@ import Text.ParserCombinators.Parsec.Expr
 import Control.Monad 
 
 main = do
-    let file = "test.bas"
-    wordBank <- readFile file
+    -- let file = "test.bas"
+    -- wordBank <- readFile file
     let test = "LET A = 2"
-    print (test)
+    case (parse test) of
+        (Left _)-> print "failed"
+        (Right r) print r 
 
 --there's quite a few of these... but let's start with the pieces
 --we need to parse foo.bas and test.bas 
@@ -30,34 +32,35 @@ main = do
 --                 | REM {Printable}*
 --                 | RETURN
 --                 | <Variable> '=' <Expression>
+data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, show)
 data Statement = Let Variable Expression
 
 instance Show Statement where 
-    show (Let var expr) =  "Let " ++ show var ++ " = " ++ show expr 
+    show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
 
+instance Show Variable where
+    show (ID c) = show c
+instance Show Expression where
+    
 data Statements =  Statement ':' Statements | Statement
 
 -- <Expression>  ::= <And Exp> OR <Expression>
 --                 | <And Exp>
-data Expression = AndExp 
+data Expression = Value Integer
 
-data AndExp = NotExp
-
---data NotExp = undefined 
-
-data Variable = ID -- | Array (we'll use you later friend) 
-
+data Variable = ID Char-- | Array (we'll use you later friend) 
 
 data Value = Variable | Function | Constant -- | '(' <Expression> ')' but I'm not sure how to handle that 
 
 
-data Constant = Integer | String  
+data Constant = Integer | String deriving Show
 
 
--- do we have to make a lexer? 
-pStatement = do
---first case a let statement 
-    string "LET " 
+
+pExpression = do
+    num <- int 
+    return num 
+    -- <|> just taking care of num for now 
     var <- char -- probably string is more appropriate
     string " = " -- not a fan but this will eat what i want 
     expr <- pExpression 
