@@ -1,5 +1,6 @@
 -- don't be basic, parse some Basic 
-import Text.ParserCombinators.Parsec 
+import qualified Text.Parsec as P
+import qualified Text.Parsec.Char as C
 import Text.ParserCombinators.Parsec.Expr
 import Control.Monad 
 
@@ -7,9 +8,9 @@ main = do
     -- let file = "test.bas"
     -- wordBank <- readFile file
     let test = "LET A = 2"
-    case (parse test) of
-        (Left _)-> print "failed"
-        (Right r) print r 
+    case (P.parse pStatement "filename" test) of
+        (Left _)  -> print "failed"
+        (Right r) -> print r 
 
 --there's quite a few of these... but let's start with the pieces
 --we need to parse foo.bas and test.bas 
@@ -32,7 +33,7 @@ main = do
 --                 | REM {Printable}*
 --                 | RETURN
 --                 | <Variable> '=' <Expression>
-data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, show)
+data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
 data Statement = Let Variable Expression
 
 instance Show Statement where 
@@ -40,13 +41,12 @@ instance Show Statement where
 
 instance Show Variable where
     show (ID c) = show c
-instance Show Expression where
     
-data Statements =  Statement ':' Statements | Statement
+--data Statements =  Statement ':' Statements | Statement
 
 -- <Expression>  ::= <And Exp> OR <Expression>
 --                 | <And Exp>
-data Expression = Value Integer
+data Expression = Value Integer deriving (Show)
 
 data Variable = ID Char-- | Array (we'll use you later friend) 
 
@@ -58,12 +58,17 @@ data Constant = Integer | String deriving Show
 
 
 pExpression = do
-    num <- int 
-    return num 
+    num <- P.many1 P.digit
+    return $ Value (read num :: Integer)
     -- <|> just taking care of num for now 
-    var <- char -- probably string is more appropriate
-    string " = " -- not a fan but this will eat what i want 
+
+pStatement = do 
+    P.string "LET "
+    var <- C.letter
+    P.string " = " -- not a fan but this will eat what i want 
     expr <- pExpression 
-    return (Let var expr)
+    return (Let (ID var) expr)
+    
+
 
 
