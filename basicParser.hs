@@ -31,25 +31,50 @@ main = do
 --                 | REM {Printable}*
 --                 | RETURN
 --                 | <Variable> '=' <Expression>
-data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
-data Op = Plus | Minus | Times | Div 
-data Statement = Let Variable Expression | Print Expression | For ID Expression Expression | GOTO Integer | GOSUB Integer 
-                | END | RETURN 
 
+-- I think we can take care of these in the cascade , data Op = Plus | Minus | Times | Div 
+data Statements =  Statement Statements | Statement
+data Statement = END | FOR ID Expression Expression | FOR ID Expression Expression | GOTO Integer | GOSUB Integer 
+                | IF Expression Integer | INPUT String IDList | Let Variable Expression | NEXT IDList
+                | ON <Expression> GOTO <Integer List> | PRINT PrintList | PRINT Expression -- | PRINT TAB <Print list> 
+                | REM {Printable}* | RETURN -- | Equal Variable Expression this one is like a let... 
 instance Show Statement where 
     show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
     show (Print expr) = "Print " ++ (show expr)
 
-instance Show Variable where
-    show (ID c) = show c
+-- grammar goes that massive cascade to end up at value ... I think we have to make all of those data types 
+data Expression = Value | AddExpr Expression Op Expression | ID Char | ExprString String | Integer 
+data AndExpr = NotExpr AndExpr | NotExpr
+data NotExpr = Not CompareExpr | CompareExpr
+data CompareExpr = Eq AddExpr CompareExpr | Angle AddExpr CompareExpr | Gt AddExpr CompareExpr 
+                    | Gte AddExpr CompareExpr | Lt AddExpr CompareExpr | Lte AddExpr CompareExpr | AddExpr 
+data AddExpr = Plus MultExpr AddExpr | Minus MultExpr AddExpr | MultExpr 
+data MultExpr = Times NegateExpr AddExpr | Div NegateExpr AddExpr | NegateExpr 
+data NegateExpr = PowerExpr -- | '-' PowerExpr don't know what this is 
+data PowerExpr = Power Value PowerExpr | Value 
+data Value = Variable | Function | Constant 
+data Variable = ID -- | Array 
+data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
+-- <Function> ::= INT '(' <Expression> ')' | RND '(' <Expression> ')'
+data Function = Inte Expression | Rnd Expression
+data Constant = Integer | String
+
+
+
+-- <value> ::= '(' <Expression> ')'
+--            | Variable
+--            | Function
+--            | Constant
 instance Show Expression where
     show (Value int) = show int
-    
---data Statements =  Statement ':' Statements | Statement
+
+instance Show Variable where
+    show (ID c) = show c
+
 
 -- <Expression>  ::= <And Exp> OR <Expression>
 --                 | <And Exp>
-data Expression = Value | AddExpr Expression Op Expression | ID Char | ExprString String | Integer 
+
 -- data Value = Variable |  Constant -- | Function | '(' <Expression> ')' but I'm not sure how to handle that 
 -- data Variable = ID Char-- | Array (we'll use you later friend)
 -- data Constant = Integer | ExprString String deriving Show
