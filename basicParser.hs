@@ -33,18 +33,23 @@ main = do
 --                 | <Variable> '=' <Expression>
 
 -- I think we can take care of these in the cascade , data Op = Plus | Minus | Times | Div 
-data Statements =  Statement Statements | Statement
-data Statement = END | FOR ID Expression Expression | FOR ID Expression Expression | GOTO Integer | GOSUB Integer 
+-- data Statements =  Statement Statements | Statement
+data Statement = END | FOR ID Expression Expression | GOTO Integer | GOSUB Integer 
                 | IF Expression Integer | INPUT String IDList | Let Variable Expression | NEXT IDList
-                | ON <Expression> GOTO <Integer List> | PRINT PrintList | PRINT Expression -- | PRINT TAB <Print list> 
-                | REM {Printable}* | RETURN -- | Equal Variable Expression this one is like a let... 
+                | PRINT PrintList -- | PRINT TAB <Print list> 
+                | RETURN 
+                -- | Equal Variable Expression this one is like a let... 
+                -- | REM {Printable}* 
+                -- | ON Expression GOTO Integer List
 instance Show Statement where 
     show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
     show (Print expr) = "Print " ++ (show expr)
 
+data PrintList = Comma Expression PrintList | Semi Expression PrintList | Expression 
+
 -- grammar goes that massive cascade to end up at value ... I think we have to make all of those data types 
-data Expression = Value | AddExpr Expression Op Expression | ID Char | ExprString String | Integer 
-data AndExpr = NotExpr AndExpr | NotExpr
+data Expression = OrExp AndExpr Expression | AndExpr        --- Value | AddExpr Expression Op Expression | ID | Constant
+data AndExpr = AndExp NotExpr AndExpr | NotExpr
 data NotExpr = Not CompareExpr | CompareExpr
 data CompareExpr = Eq AddExpr CompareExpr | Angle AddExpr CompareExpr | Gt AddExpr CompareExpr 
                     | Gte AddExpr CompareExpr | Lt AddExpr CompareExpr | Lte AddExpr CompareExpr | AddExpr 
@@ -55,6 +60,7 @@ data PowerExpr = Power Value PowerExpr | Value
 data Value = Variable | Function | Constant 
 data Variable = ID -- | Array 
 data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
+data IDList = IDComma ID IDList | ID 
 -- <Function> ::= INT '(' <Expression> ')' | RND '(' <Expression> ')'
 data Function = Inte Expression | Rnd Expression
 data Constant = Integer | String
@@ -130,7 +136,7 @@ addExpr =
 -- ========== statement related parsing 
 pStatement =
     letStatement P.<|>
-    printStatement P.<|>
+    printStatement 
 
 
 letStatement = do
