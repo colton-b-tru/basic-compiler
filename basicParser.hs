@@ -36,14 +36,14 @@ main = do
 -- data Statements =  Statement Statements | Statement
 data Statement = END | FOR ID Expression Expression | GOTO Integer | GOSUB Integer 
                 | IF Expression Integer | INPUT String IDList | Let Variable Expression | NEXT IDList
-                | PRINT PrintList -- | PRINT TAB <Print list> 
+                | ONGOTO Expression IntList | PRINT Expression -- | PRINT TAB <Print list> 
                 | RETURN 
                 -- | Equal Variable Expression this one is like a let... 
                 -- | REM {Printable}* 
                 -- | ON Expression GOTO Integer List
 instance Show Statement where 
     show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
-    show (Print expr) = "Print " ++ (show expr)
+    show (PRINT expr) = "Print " ++ (show expr)
 
 data PrintList = Comma Expression PrintList | Semi Expression PrintList | Expression 
 
@@ -59,18 +59,14 @@ data NegateExpr = PowerExpr -- | '-' PowerExpr don't know what this is
 data PowerExpr = Power Value PowerExpr | Value 
 data Value = Variable | Function | Constant 
 data Variable = ID -- | Array 
-data ID = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
-data IDList = IDComma ID IDList | ID 
+data ID =  ID Char-- A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
+data IDList = IDComma ID IDList -- | ID 
+data IntList = Integer | Integer IntList
 -- <Function> ::= INT '(' <Expression> ')' | RND '(' <Expression> ')'
 data Function = Inte Expression | Rnd Expression
 data Constant = Integer | String
 
 
-
--- <value> ::= '(' <Expression> ')'
---            | Variable
---            | Function
---            | Constant
 instance Show Expression where
     show (Value int) = show int
 
@@ -78,16 +74,10 @@ instance Show Variable where
     show (ID c) = show c
 
 
--- <Expression>  ::= <And Exp> OR <Expression>
---                 | <And Exp>
-
--- data Value = Variable |  Constant -- | Function | '(' <Expression> ')' but I'm not sure how to handle that 
--- data Variable = ID Char-- | Array (we'll use you later friend)
--- data Constant = Integer | ExprString String deriving Show
 
 
-
-
+number :: GenParser Char st Sexpr
+number = do {n <- (many1 digit); spaces; return $ Number (read n :: Int)}
 -- ================= expression related parsing 
 num = do
     num' <- P.many1 P.digit
@@ -129,15 +119,29 @@ addExpr =
     lExpr <- pExpression
     op' <- op
     rExpr <- pExpression 
-    return (AddExpr lExpr op rExpr)
+    case op' of Plus return (AddExpr lExpr op rExpr)
+
+
+
+
 
 
 
 -- ========== statement related parsing 
 pStatement =
     letStatement P.<|>
-    printStatement 
-
+    printStatement P.<|>
+    forStatement P.<|>
+    gotoStatement P.<|>
+    gosubStatement P.<|>
+    ifThenStatement P.<|>
+    inputStatement P.<|>
+    nextStatement P.<|>
+    onGotoStatement P.<|>
+    remStatement P.<|>
+    returnStatement P.<|>
+    -- var = expr
+    
 
 letStatement = do
     P.string "LET "
@@ -149,11 +153,60 @@ letStatement = do
 printStatement = do 
     P.string "PRINT "
     expr <- pExpression
-    return (Print expr)
+    return (PRINT expr)
+-- also consider this print PRINT TAB '(' <Expression> ')' <Print list>
 
 forStatement = do 
     P.string "FOR "
-    expr 
+    id <- idExpression 
+    P.string " = "
+    expr0 <- pExpression
+    P.string " TO "
+    expr1 <- pExpression
+    return (FOR id expr0 expr1)
+
+gotoStatement = do 
+    P.string "GOTO"
+    lineNum <- number
+    return (GOTO lineNum)
+
+gosubStatement = do 
+    P.string "GOSUB" 
+    lineNum <- number
+    return (GOSUB lineNum)
+
+ifThenStatement = do 
+    P.string "IF "
+    expr <- pExpression 
+    P.string " THEN "
+    lineNum <- number 
+    return (IF expr lineNum)
+
+-- INPUT String ';' <ID List>
+inputStatement = do 
+    P.string "INPUT " 
+    string <- P.string 
+    C.char ';'
+    idList <- pIDList
+    return (INPUT string idList)
+-- NEXT <ID List>
+nextStatement = do 
+    P.string "NEXT "
+    idList <- pIDList
+    return (NEXT idList)
+-- ON <Expression> GOTO <Integer List>
+onGotoStatement = do 
+    P.string "ON "
+    expr <- pExpression 
+    P.string " GOTO "
+    intList <- pIntList 
+    return (ONGOTO expr intlist)
+
+returnStatement = do 
+    P.string "RETURN"
+    return (RETURN)
+
+
 
 p :: String -> Statement 
 assumeRight (Right r) = r
