@@ -50,7 +50,7 @@ data Statement = END | FOR ID Expression Expression | GOTO Integer | GOSUB Integ
 data PrintList = Comma Expression PrintList | Semi Expression PrintList | Expression 
 
 -- grammar goes that massive cascade to end up at value ... I think we have to make all of those data types 
-data Expression = OrExp AndExpr Expression  
+data Expression = OrExp AndExp Expression  
                 | NotExp CompareExp 
                 | CompareExp AddExp CompareExp
                 | AddExp MultExp AddExp 
@@ -58,8 +58,8 @@ data Expression = OrExp AndExpr Expression
                 | NegateExp PowerExp
                 | PowerExp Value PowerExp
                 | Value deriving (Show)
-data AndExpr = AndExp NotExpr AndExpr | NotExpr deriving (Show) 
-data NotExpr = Not CompareExp | CompareExpr deriving (Show) 
+data AndExp = AndExpr NotExp AndExp deriving (Show) 
+data NotExp = Not CompareExp deriving (Show) 
 data CompareExp = Eq AddExp CompareExp
                     | Angle AddExp CompareExp 
                     | Gt AddExp CompareExp
@@ -67,38 +67,29 @@ data CompareExp = Eq AddExp CompareExp
                     | Lt AddExp CompareExp 
                     | Lte AddExp CompareExp deriving (Show) 
 data AddExp = Plus MultExp AddExp | Minus MultExp AddExp deriving (Show) 
-data MultExp = Multiply NegateExp AddExp | Divide NegateExp AddExp deriving (Show)
+data MultExp = Multiply NegateExp MultExp | Divide NegateExp MultExp deriving (Show)
 data NegateExp = NegExpr PowerExp deriving (Show)
 data PowerExp = PowerExpr0 Value PowerExp | PowerExpr1 Value deriving (Show) 
-data Value = Var Variable deriving (Show)
+data Value = Var Variable | ConstantInt Integer | ConstantStr String deriving (Show) -- | Func Function | C
 data Variable = Variable ID deriving (Show)
 data ID = Id Char deriving (Show)
 data IntList = SngList Integer | List IntList deriving (Show) 
 data IDList = IDComma ID IDList deriving (Show)
+--data ConstantInt = ConstantIntInstance Integer
+--data ConstantString = ConstantStringInstance [Char]
 
-
--- 
-
--- 
--- data Value = Variable 
---     | Function 
---     | ConstantInt 
---     | ConstantString deriving (Show) 
--- data Variable = ID deriving (Show) -- | Array deriving (Show) 
--- data ID = Id Char deriving (Show) -- A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z deriving (Enum, Show)
---   -- 
 
 -- -- <Function> ::= INT '(' <Expression> ')' | RND '(' <Expression> ')'
 -- data Function = Inte Expression | Rnd Expression deriving (Show) 
--- -- data Constant = Integer | String deriving (Show) 
--- data ConstantInt = ConstantIntInstance Integer
--- data ConstantString = ConstantStringInstance [Char]
 
 -- instance Show Expression where
 --     show Value = show int
 
 -- instance Show Variable where
 --     show (ID c) = show c
+
+
+
 -- ++++++++= LEXER STUFF
 languageDef =
     emptyDef {Token.commentLine = "REM"
@@ -125,6 +116,7 @@ languageDef =
                                       , "<", ">", "and", "or", "not"
                                       ]
               }
+
 
 -- https://wiki.haskell.org/Parsing_a_simple_imperative_language#Lexer had some really useful parsec pieces
 arithOps = [ [Prefix (reservedOp "-"   >> return (Neg             ))          ]
@@ -172,7 +164,7 @@ addExpr =
     lExpr <- pExpression
     op' <- reservedOp
     rExpr <- pExpression 
-    case op' of "+" -> return (AddExpr lExpr op' rExpr)
+    case op' of "+" -> return (Plus lExpr op' rExpr)
                 "-" -> return (Minus lExpr op' rExpr)
                 "*" -> return (Times lExpr op' rExpr)
                 "/" -> return (Divide lExpr op' rExpr)
@@ -227,21 +219,19 @@ printStatement = do
 
 forStatement = do 
     reserved "FOR"
-    id <- idExpression 
-    P.string " = "
     expr0 <- pExpression
     P.string " TO "
     expr1 <- pExpression
-    return (FOR id expr0 expr1)
+    return (FOR expr0 expr1)
 
 gotoStatement = do 
     P.string "GOTO"
-    lineNum <- number
+    lineNum <- integer
     return (GOTO lineNum)
 
 gosubStatement = do 
     P.string "GOSUB" 
-    lineNum <- number
+    lineNum <- integer
     return (GOSUB lineNum)
 
 ifThenStatement = do 
