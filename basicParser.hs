@@ -12,8 +12,7 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 main = do
     -- let file = "test.bas"
     -- fileContent <- readFile file
-    let  parseMe = "LET A = 2"
-    print (p parseMe)
+    print "TEST"
 
 --Lance Provided Grammar 
 -- <Statement>   ::= DIM <Array List>
@@ -35,11 +34,12 @@ main = do
 
 -- I think we can take care of these in the cascade , data Op = Plus | Minus | Times | Div 
 -- data Statements =  Statement Statements | Statement
-data Statement = END | FOR ID Expression Expression | GOTO Integer | GOSUB Integer 
-                | IF Expression Integer  | INPUT1 String | LET Variable Expression | NEXT IDList
-                | ONGOTO Expression IntList | PRINT Expression -- | PRINT TAB <Print list> 
+data Statement = END | FOR Expression Expression Expression | GOTO Integer | GOSUB Integer 
+                | IF Expression Integer  | INPUT1 String | LET Expression Expression | NEXT Expression
+                | ONGOTO Expression Expression | PRINT Expression -- | PRINT TAB <Print list> 
                 | RETURN 
-                | INPUT String IDList
+                | INPUT String [Expression]
+                | Sequence [Statement]
                 -- | Equal Variable Expression this one is like a let... 
                 -- | REM {Printable}* 
                 -- | ON Expression GOTO Integer List
@@ -47,34 +47,49 @@ data Statement = END | FOR ID Expression Expression | GOTO Integer | GOSUB Integ
 --     show (Let var expr) =  "LET " ++ (show var) ++ " = " ++ (show expr) 
 --     show (PRINT expr) = "Print " ++ (show expr)
 
-data PrintList = Comma Expression PrintList | Semi Expression PrintList | Expression 
+--data PrintList = Comma Expression PrintList | Semi Expression PrintList | Expression 
+
+data Expression = NotExp Expression 
+                | ArithExp Op Expression Expression
+                | BoolExp Op Expression Expression
+                | CompareExp Op Expression Expression 
+                | NegateExp Expression 
+                | PowerExp Expression Expression --left expr is a value... 
+                | VarValue Char 
+                | FuncInt Expression 
+                | FuncRnd Expression 
+                | ConstInt Integer 
+                | ConstStr String
+                | ID Char
+                | List Expression --can come in the form of , ; 
+data Op = Plus | Minus | Multiply | Divide | Gt | Gte | Lt | Lte | And | Or | Not | Angle | Equal deriving (Show) 
 
 -- grammar goes that massive cascade to end up at value ... I think we have to make all of those data types 
-data Expression = OrExp AndExp Expression  
-                | NotExp CompareExp 
-                | CompareExp AddExp CompareExp
-                | AddExp MultExp AddExp 
-                | MultExp NegateExp MultExp 
-                | NegateExp PowerExp
-                | PowerExp Value PowerExp
-                | Value deriving (Show)
-data AndExp = AndExpr NotExp AndExp deriving (Show) 
-data NotExp = Not CompareExp deriving (Show) 
-data CompareExp = Eq AddExp CompareExp
-                    | Angle AddExp CompareExp 
-                    | Gt AddExp CompareExp
-                    | Gte AddExp CompareExp 
-                    | Lt AddExp CompareExp 
-                    | Lte AddExp CompareExp deriving (Show) 
-data AddExp = Plus MultExp AddExp | Minus MultExp AddExp deriving (Show) 
-data MultExp = Multiply NegateExp MultExp | Divide NegateExp MultExp deriving (Show)
-data NegateExp = NegExpr PowerExp deriving (Show)
-data PowerExp = PowerExpr0 Value PowerExp | PowerExpr1 Value deriving (Show) 
-data Value = Var Variable | ConstantInt Integer | ConstantStr String deriving (Show) -- | Func Function | C
-data Variable = Variable ID deriving (Show)
-data ID = Id Char deriving (Show)
-data IntList = SngList Integer | List IntList deriving (Show) 
-data IDList = IDComma ID IDList deriving (Show)
+-- data Expression = OrExp AndExp Expression  
+--                 | NotExp CompareExp 
+--                 | CompareExp AddExp CompareExp
+--                 | AddExp MultExp AddExp 
+--                 | MultExp NegateExp MultExp 
+--                 | NegateExp PowerExp
+--                 | PowerExp Value PowerExp
+--                 | Value deriving (Show)
+-- data AndExp = AndExpr NotExp AndExp deriving (Show)  
+-- data NotExp = Not CompareExp deriving (Show) 
+-- data CompareExp = Eq AddExp CompareExp
+--                     | Angle AddExp CompareExp 
+--                     | Gt AddExp CompareExp
+--                     | Gte AddExp CompareExp 
+--                     | Lt AddExp CompareExp 
+--                     | Lte AddExp CompareExp deriving (Show) 
+-- data AddExp = Plus MultExp AddExp | Minus MultExp AddExp deriving (Show) 
+-- data MultExp = Multiply NegateExp MultExp | Divide NegateExp MultExp deriving (Show)
+-- data NegateExp = NegExpr PowerExp deriving (Show)
+-- data PowerExp = PowerExpr0 Value PowerExp | PowerExpr1 Value deriving (Show) 
+-- data Value = Var Variable | ConstantInt Integer | ConstantStr String deriving (Show) -- | Func Function | C
+-- data Variable = Variable ID deriving (Show)
+-- data ID = Id Char deriving (Show)
+-- data IntList = SngList Integer | List IntList deriving (Show) 
+-- data IDList = IDComma ID IDList deriving (Show)
 --data ConstantInt = ConstantIntInstance Integer
 --data ConstantString = ConstantStringInstance [Char]
 
@@ -112,24 +127,11 @@ languageDef =
                  ,"END"
                  ,"RETURN"
                ]
-             , Token.reservedOpNames = ["+", "-", "*", "/", "="
-                                      , "<", ">", "and", "or", "not"
+             , Token.reservedOpNames = ["+", "-", "*", "/", "=", "^"
+                                      , "<", ">", ">=", "<=", "<>", "AND", "OR", "NOT"
                                       ]
               }
 
-
--- https://wiki.haskell.org/Parsing_a_simple_imperative_language#Lexer had some really useful parsec pieces
-arithOps = [ [Prefix (reservedOp "-"   >> return (Neg             ))          ]
-              , [Infix  (reservedOp "*"   >> return (Multiply)) AssocLeft,
-                Infix  (reservedOp "/"   >> return (Divide   )) AssocLeft]
-              , [Infix  (reservedOp "+"   >> return (Plus    )) AssocLeft,
-                 Infix  (reservedOp "-"   >> return (Minus   )) AssocLeft]
-              ]
-
-boolOps  = [ [Prefix (reservedOp "not" >> return (Not             ))          ]
-              , [Infix  (reservedOp "and" >> return (And     )) AssocLeft,
-                 Infix  (reservedOp "or"  >> return (Or      )) AssocLeft]
-            ]
 
 lexer = Token.makeTokenParser languageDef 
 
@@ -144,50 +146,61 @@ variable = do
         varName <- C.upper 
         return (ID varName) -- or is this ID varName ?
 
+aExpression = buildExpressionParser arithOps arithExpressions
+bExpression = buildExpressionParser boolOps boolExpressions 
 
- 
+-- https://wiki.haskell.org/Parsing_a_simple_imperative_language#Lexer had some really useful parsec pieces
+arithOps = [    [Prefix (reservedOp "-"      >> return (NegateExp      )) ]
+              , [Infix  (reservedOp "*"   >> return (ArithExp Multiply )) AssocLeft,
+                Infix  (reservedOp "/"    >> return (ArithExp Divide   )) AssocLeft]
+              , [Infix  (reservedOp "+"   >> return (ArithExp Plus     )) AssocLeft,
+                 Infix  (reservedOp "-"   >> return (ArithExp Minus    )) AssocLeft]
+              ]
+
+boolOps  = [ [Prefix (reservedOp "NOT"    >> return (NotExp     ))         ]
+              , [Infix  (reservedOp "AND" >> return (BoolExp And     )) AssocLeft,
+                 Infix  (reservedOp "OR"  >> return (BoolExp Or      )) AssocLeft]
+            ]
+
+arithExpressions = parens aExpression
+    P.<|> liftM ConstStr identifier -- this might have to be variable   
+    P.<|> liftM ConstInt integer
+
+boolExpressions = parens bExpression P.<|>
+    do
+        arithExp0 <- aExpression
+        op <- relation 
+        arithExp1 <- aExpression
+        return $ CompareExp op arithExp0 arithExp1
+
+relation =    (reservedOp ">"  >> return Gt)
+        P.<|> (reservedOp "<"  >> return Lt)
+        P.<|> (reservedOp ">=" >> return Gte)
+        P.<|> (reservedOp "<=" >> return Lte)
+        P.<|> (reservedOp "<>" >> return Angle)
+        P.<|> (reservedOp "=" >> return Equal)
+
         
 pExpression = 
     do
-        addExpr
+    aExpression 
     P.<|>
     do 
-        compareExpr
-    -- P.<|>    
-    -- do
-         
-
-
--- do we haveto cascade down all these to make sure we cover all types of nesting in arithmetic expressoins? 
-addExpr = 
-    do
-    lExpr <- pExpression
-    op' <- reservedOp
-    rExpr <- pExpression 
-    case op' of "+" -> return (Plus lExpr op' rExpr)
-                "-" -> return (Minus lExpr op' rExpr)
-                "*" -> return (Times lExpr op' rExpr)
-                "/" -> return (Divide lExpr op' rExpr)
-
-compareExpr = do 
-    addExp <- addExpr 
-    compOp <- reservedOp
-    compExp <- compareExpr 
-    case compOp of "=" -> return (Eq addExp compExp)
-                   "<>" -> return (Angle addExp compExp)
-                   ">" -> return (Gt addExp compExp)
-                   ">=" -> return (Gte addExp compExp)
-                   "<" -> return (Lt addExp compExp)
-                   "<=" -> return (Lte addExp compExp)
-    P.<|>
-    do addExpr
-
+    bExpression 
 
 
 
 
 
 -- ========== statement related parsing 
+statement = parens statement 
+    P.<|> sequenceStatement
+
+sequenceStatement = do
+    list <- (sepBy1 pStatement semi)
+    return $ if length list == 1 then head list else Sequence list
+    
+
 pStatement =
     letStatement P.<|>
     printStatement P.<|>
@@ -207,7 +220,7 @@ pStatement =
 letStatement = do
     reserved "LET"
     var <- variable
-    reserved "="
+    reservedOp "="
     expr <- pExpression
     return (LET var expr)
 
@@ -220,17 +233,19 @@ printStatement = do
 forStatement = do 
     reserved "FOR"
     expr0 <- pExpression
-    P.string " TO "
+    reservedOp "="
     expr1 <- pExpression
-    return (FOR expr0 expr1)
+    reserved "TO"
+    expr2 <- pExpression
+    return (FOR expr0 expr1 expr2)
 
 gotoStatement = do 
-    P.string "GOTO"
+    reserved "GOTO"
     lineNum <- integer
     return (GOTO lineNum)
 
 gosubStatement = do 
-    P.string "GOSUB" 
+    reserved "GOSUB" 
     lineNum <- integer
     return (GOSUB lineNum)
 
@@ -246,19 +261,23 @@ inputStatement = do
     reserved "INPUT"
     str <- (many1 alphaNum) --something that can pull out any string
     return (INPUT1 str)
-    P.<|>
-    do
-    reserved "INPUT"
-    str <- (many1 alphaNum)
-    semi
-    idList <- pIDList
-    return (INPUT str idList)
+    -- P.<|>
+    -- do
+    -- reserved "INPUT"
+    -- str <- (many1 alphaNum)
+    -- semi
+    -- idList <- pIDList
+    -- return (INPUT str idList)
 
-pIDList = do 
-    id <- variable
-    C.char ','
-    idList <- pIDList
-    return (IDComma id idList) 
+returnStatement = do 
+    reserved "RETURN"
+    return (RETURN)
+
+endStatement = do 
+    reserved "END"
+    return END
+
+
 
     
 

@@ -18,7 +18,7 @@ data Statement = LET Variable Expression
     | END 
 
 
-data Expression = 
+data Expression = CompExpr AddExpr
     -- AndExpr | OrExpr AndExpr Expression 
     -- | 
 languageDef =
